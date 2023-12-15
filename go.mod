@@ -378,3 +378,5 @@ require (
 	gonum.org/v1/gonum v0.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 )
+
+replace github.com/filecoin-project/lotus => ./extern/lotus@v1.25.0
