@@ -77,6 +77,8 @@ type StorageMiner interface {
 	// sectors can be created.
 	SectorAddPieceToAny(ctx context.Context, size abi.UnpaddedPieceSize, r storiface.Data, d PieceDealInfo) (SectorOffset, error) //perm:admin
 
+	SectorAddPieceToAnyOfSxx(ctx context.Context, size abi.UnpaddedPieceSize, d PieceDealInfo) (SectorOffset, error) //perm:admin
+
 	SectorsUnsealPiece(ctx context.Context, sector storiface.SectorRef, offset storiface.UnpaddedByteIndex, size abi.UnpaddedPieceSize, randomness abi.SealRandomness, commd *cid.Cid) error //perm:admin
 
 	// List all staged sectors

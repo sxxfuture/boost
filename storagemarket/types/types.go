@@ -157,6 +157,7 @@ type DealResponse struct {
 
 type PieceAdder interface {
 	AddPiece(ctx context.Context, size abi.UnpaddedPieceSize, r io.Reader, d api.PieceDealInfo) (abi.SectorNumber, abi.PaddedPieceSize, error)
+	AddPieceOfSxx(ctx context.Context, size abi.UnpaddedPieceSize, d api.PieceDealInfo) (abi.SectorNumber, abi.PaddedPieceSize, error)
 }
 
 type CommpCalculator interface {

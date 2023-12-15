@@ -661,6 +661,40 @@ func (p *Provider) AddPieceToSector(ctx context.Context, deal smtypes.ProviderDe
 	}, nil
 }
 
+func (p *Provider) AddPieceToSectorOfSxx(ctx context.Context, deal smtypes.ProviderDealState) (*storagemarket.PackingResult, error) {
+	// Sanity check - we must have published the deal before handing it off
+	// to the sealing subsystem
+	if deal.PublishCID == nil {
+		return nil, fmt.Errorf("deal.PublishCid can't be nil")
+	}
+
+	sdInfo := lapi.PieceDealInfo{
+		DealID:       deal.ChainDealID,
+		DealProposal: &deal.ClientDealProposal.Proposal,
+		PublishCid:   deal.PublishCID,
+		DealSchedule: lapi.DealSchedule{
+			StartEpoch: deal.ClientDealProposal.Proposal.StartEpoch,
+			EndEpoch:   deal.ClientDealProposal.Proposal.EndEpoch,
+		},
+		KeepUnsealed:   deal.FastRetrieval,
+		RemoteFilepath: deal.InboundFilePath,
+	}
+
+	// Attempt to add the piece to a sector (repeatedly if necessary)
+	pieceSize := deal.ClientDealProposal.Proposal.PieceSize.Unpadded()
+	sectorNum, offset, err := addPieceWithRetryOfSxx(ctx, p.pieceAdder, pieceSize, sdInfo)
+	if err != nil {
+		return nil, fmt.Errorf("AddPiece failed: %w", err)
+	}
+	p.dealLogger.Infow(deal.DealUuid, "added new deal to sector", "sector", sectorNum.String())
+
+	return &storagemarket.PackingResult{
+		SectorNumber: sectorNum,
+		Offset:       offset,
+		Size:         pieceSize.Padded(),
+	}, nil
+}
+
 func addPieceWithRetry(ctx context.Context, pieceAdder smtypes.PieceAdder, pieceSize abi.UnpaddedPieceSize, pieceData io.Reader, sdInfo lapi.PieceDealInfo) (abi.SectorNumber, abi.PaddedPieceSize, error) {
 	sectorNum, offset, err := pieceAdder.AddPiece(ctx, pieceSize, pieceData, sdInfo)
 	curTime := build.Clock.Now()
@@ -675,6 +709,27 @@ func addPieceWithRetry(ctx context.Context, pieceAdder smtypes.PieceAdder, piece
 		select {
 		case <-build.Clock.After(addPieceRetryWait):
 			sectorNum, offset, err = pieceAdder.AddPiece(ctx, pieceSize, pieceData, sdInfo)
+		case <-ctx.Done():
+			return 0, 0, fmt.Errorf("shutdown while adding piece")
+		}
+	}
+	return sectorNum, offset, err
+}
+
+func addPieceWithRetryOfSxx(ctx context.Context, pieceAdder smtypes.PieceAdder, pieceSize abi.UnpaddedPieceSize, sdInfo lapi.PieceDealInfo) (abi.SectorNumber, abi.PaddedPieceSize, error) {
+	sectorNum, offset, err := pieceAdder.AddPieceOfSxx(ctx, pieceSize, sdInfo)
+	curTime := build.Clock.Now()
+	for err != nil && build.Clock.Since(curTime) < addPieceRetryTimeout {
+		// Check if the error was because there are too many sectors sealing
+		if !errors.Is(err, sealing.ErrTooManySectorsSealing) {
+			// There was some other error, return it
+			return 0, 0, err
+		}
+
+		// There are too many sectors sealing, back off for a while then try again
+		select {
+		case <-build.Clock.After(addPieceRetryWait):
+			sectorNum, offset, err = pieceAdder.AddPieceOfSxx(ctx, pieceSize, sdInfo)
 		case <-ctx.Done():
 			return 0, 0, fmt.Errorf("shutdown while adding piece")
 		}

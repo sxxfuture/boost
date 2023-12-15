@@ -250,6 +250,10 @@ func (sm *StorageMinerAPI) SectorAddPieceToAny(ctx context.Context, size abi.Unp
 	return so, nil
 }
 
+func (sm *StorageMinerAPI) SectorAddPieceToAnyOfSxx(ctx context.Context, size abi.UnpaddedPieceSize, d api.PieceDealInfo) (api.SectorOffset, error) {
+	return api.SectorOffset{}, nil
+}
+
 func (sm *StorageMinerAPI) SectorsUnsealPiece(ctx context.Context, sector storiface.SectorRef, offset storiface.UnpaddedByteIndex, size abi.UnpaddedPieceSize, randomness abi.SealRandomness, commd *cid.Cid) error {
 	return sm.StorageMgr.SectorsUnsealPiece(ctx, sector, offset, size, randomness, commd)
 }

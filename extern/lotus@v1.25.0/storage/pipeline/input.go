@@ -375,6 +375,10 @@ func (m *Sealing) SectorAddPieceToAny(ctx context.Context, size abi.UnpaddedPiec
 	return api.SectorOffset{Sector: res.sn, Offset: res.offset.Padded()}, res.err
 }
 
+func (m *Sealing) SectorAddPieceToAnyOfSxx(ctx context.Context, size abi.UnpaddedPieceSize, d api.PieceDealInfo) (api.SectorOffset, error) {
+	return api.SectorOffset{}, nil
+}
+
 func (m *Sealing) getClaimTerms(ctx context.Context, deal api.PieceDealInfo, tsk types.TipSetKey) (pieceClaimBounds, error) {
 	nv, err := m.Api.StateNetworkVersion(ctx, tsk)
 	if err != nil {

@@ -210,10 +210,21 @@ func (p *Provider) execDealUptoAddPiece(ctx context.Context, deal *types.Provide
 
 	// AddPiece
 	if deal.Checkpoint < dealcheckpoints.AddedPiece {
-		if err := p.addPiece(ctx, pub, deal); err != nil {
-			err.error = fmt.Errorf("failed to add piece: %w", err.error)
-			return err
+		if os.Getenv("LOTUS_OF_SXX") == "1" {
+			if err := p.addPieceOfSxx(ctx, pub, deal); err != nil {
+				err.error = fmt.Errorf("failed to add piece: %w", err.error)
+				return err
+			}
+		} else {
+			if err := p.addPiece(ctx, pub, deal); err != nil {
+				err.error = fmt.Errorf("failed to add piece: %w", err.error)
+				return err
+			}
 		}
+		// if err := p.addPiece(ctx, pub, deal); err != nil {
+		// 	err.error = fmt.Errorf("failed to add piece: %w", err.error)
+		// 	return err
+		// }
 		p.dealLogger.Infow(deal.DealUuid, "deal successfully handed over to the sealing subsystem")
 	} else {
 		p.dealLogger.Infow(deal.DealUuid, "deal has already been handed over to the sealing subsystem")
@@ -543,6 +554,42 @@ func (p *Provider) addPiece(ctx context.Context, pub event.Emitter, deal *types.
 	// Add the piece to a sector
 	packingInfo, packingErr := p.AddPieceToSector(ctx, *deal, paddedReader)
 	_ = paddedReader.Close()
+	if packingErr != nil {
+		if ctx.Err() != nil {
+			p.dealLogger.Warnw(deal.DealUuid, "context timed out while trying to add piece")
+		}
+
+		return &dealMakingError{
+			retry: types.DealRetryAuto,
+			error: fmt.Errorf("packing piece %s: %w", proposal.PieceCID, packingErr),
+		}
+	}
+
+	deal.SectorID = packingInfo.SectorNumber
+	deal.Offset = packingInfo.Offset
+	deal.Length = packingInfo.Size
+	p.dealLogger.Infow(deal.DealUuid, "deal successfully handed to the sealing subsystem",
+		"sectorNum", deal.SectorID.String(), "offset", deal.Offset, "length", deal.Length)
+
+	if derr := p.updateCheckpoint(pub, deal, dealcheckpoints.AddedPiece); derr != nil {
+		return derr
+	}
+
+	return nil
+}
+
+func (p *Provider) addPieceOfSxx(ctx context.Context, pub event.Emitter, deal *types.ProviderDealState) *dealMakingError {
+	// Check that the deal's start epoch hasn't already elapsed
+	if derr := p.checkDealProposalStartEpoch(deal); derr != nil {
+		return derr
+	}
+
+	p.dealLogger.Infow(deal.DealUuid, "add piece called")
+
+	proposal := deal.ClientDealProposal.Proposal
+
+	// Add the piece to a sector
+	packingInfo, packingErr := p.AddPieceToSectorOfSxx(ctx, *deal)
 	if packingErr != nil {
 		if ctx.Err() != nil {
 			p.dealLogger.Warnw(deal.DealUuid, "context timed out while trying to add piece")

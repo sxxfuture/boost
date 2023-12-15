@@ -1074,6 +1074,8 @@ type StorageMinerMethods struct {
 
 	SectorAddPieceToAny func(p0 context.Context, p1 abi.UnpaddedPieceSize, p2 storiface.Data, p3 PieceDealInfo) (SectorOffset, error) `perm:"admin"`
 
+	SectorAddPieceToAnyOfSxx func(p0 context.Context, p1 abi.UnpaddedPieceSize, p2 PieceDealInfo) (SectorOffset, error) `perm:"admin"`
+
 	SectorCommitFlush func(p0 context.Context) ([]sealiface.CommitBatchRes, error) `perm:"admin"`
 
 	SectorCommitPending func(p0 context.Context) ([]abi.SectorID, error) `perm:"admin"`
@@ -6399,6 +6401,17 @@ func (s *StorageMinerStruct) SectorAddPieceToAny(p0 context.Context, p1 abi.Unpa
 }
 
 func (s *StorageMinerStub) SectorAddPieceToAny(p0 context.Context, p1 abi.UnpaddedPieceSize, p2 storiface.Data, p3 PieceDealInfo) (SectorOffset, error) {
+	return *new(SectorOffset), ErrNotSupported
+}
+
+func (s *StorageMinerStruct) SectorAddPieceToAnyOfSxx(p0 context.Context, p1 abi.UnpaddedPieceSize, p2 PieceDealInfo) (SectorOffset, error) {
+	if s.Internal.SectorAddPieceToAnyOfSxx == nil {
+		return *new(SectorOffset), ErrNotSupported
+	}
+	return s.Internal.SectorAddPieceToAnyOfSxx(p0, p1, p2)
+}
+
+func (s *StorageMinerStub) SectorAddPieceToAnyOfSxx(p0 context.Context, p1 abi.UnpaddedPieceSize, p2 PieceDealInfo) (SectorOffset, error) {
 	return *new(SectorOffset), ErrNotSupported
 }
 
