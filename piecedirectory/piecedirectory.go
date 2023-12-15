@@ -466,6 +466,39 @@ func (ps *PieceDirectory) GetPieceReader(ctx context.Context, pieceCid cid.Cid) 
 	return nil, merr
 }
 
+func (ps *PieceDirectory) GetPieceReaderOfSxx(ctx context.Context, pieceCid cid.Cid) (types.SectionReader, error) {
+	ctx, span := tracing.Tracer.Start(ctx, "pm.get_piece_reader")
+	defer span.End()
+	span.SetAttributes(attribute.String("piececid", pieceCid.String()))
+
+	// Get all deals containing this piece
+	deals, err := ps.GetPieceDeals(ctx, pieceCid)
+	if err != nil {
+		return nil, fmt.Errorf("getting piece deals: %w", err)
+	}
+
+	if len(deals) == 0 {
+		return nil, fmt.Errorf("no deals found for piece cid %s: %w", pieceCid, err)
+	}
+
+	// For each deal, try to read an unsealed copy of the data from the sector
+	// it is stored in
+	var merr error
+	for i, dl := range deals {
+		reader, err := ps.pieceReader.GetReaderOfSxx(ctx, dl.MinerAddr, dl.SectorID, dl.PieceOffset, dl.PieceLength, pieceCid)
+		if err != nil {
+			if i < 3 {
+				merr = multierror.Append(merr, err)
+			}
+			continue
+		}
+
+		return reader, nil
+	}
+
+	return nil, merr
+}
+
 type cachedSectionReader struct {
 	types.SectionReader
 	ps       *PieceDirectory
@@ -522,7 +555,8 @@ func (ps *PieceDirectory) GetSharedPieceReader(ctx context.Context, pieceCid cid
 
 		// We just added a cached reader, so get its underlying piece reader
 		readerCtx, readerCtxCancel := context.WithCancel(context.Background())
-		sr, err := ps.GetPieceReader(readerCtx, pieceCid)
+		// sr, err := ps.GetPieceReader(readerCtx, pieceCid)
+		sr, err := ps.GetPieceReaderOfSxx(readerCtx, pieceCid)
 
 		r.SectionReader = sr
 		r.err = err
@@ -628,7 +662,9 @@ func (ps *PieceDirectory) BlockstoreGet(ctx context.Context, c cid.Cid) ([]byte,
 			readerAt := readerutil.NewReadSeekerFromReaderAt(reader, int64(offsetSize.Offset))
 
 			// Read the block data
-			_, data, err := util.ReadNode(bufio.NewReader(readerAt))
+			// 官方版本使用 NewReader 中缓存大小为4096，不适合2k环境
+			// _, data, err := util.ReadNode(bufio.NewReader(readerAt))
+			_, data, err := util.ReadNode(bufio.NewReaderSize(readerAt, 2048))
 			if err != nil {
 				return nil, fmt.Errorf("reading data for block %s from reader for piece %s: %w", c, pieceCid, err)
 			}
@@ -771,6 +807,27 @@ func (s *SectorAccessorAsPieceReader) GetReader(ctx context.Context, minerAddr a
 	}
 
 	r, err := s.SectorAccessor.UnsealSectorAt(ctx, id, offset.Unpadded(), length.Unpadded())
+	if err != nil {
+		return nil, fmt.Errorf("getting reader over sector %d: %w", id, err)
+	}
+
+	return r, nil
+}
+
+func (s *SectorAccessorAsPieceReader) GetReaderOfSxx(ctx context.Context, minerAddr address.Address, id abi.SectorNumber, offset abi.PaddedPieceSize, length abi.PaddedPieceSize, piececid cid.Cid) (types.SectionReader, error) {
+	ctx, span := tracing.Tracer.Start(ctx, "sealer.get_reader")
+	defer span.End()
+
+	isUnsealed, err := s.SectorAccessor.IsUnsealed(ctx, id, offset.Unpadded(), length.Unpadded())
+	if err != nil {
+		return nil, fmt.Errorf("checking unsealed state of sector %d: %w", id, err)
+	}
+
+	if !isUnsealed {
+		return nil, fmt.Errorf("getting reader over sector %d: %w", id, types.ErrSealed)
+	}
+
+	r, err := s.SectorAccessor.UnsealSectorAtOfSxx(ctx, id, offset.Unpadded(), length.Unpadded(), piececid)
 	if err != nil {
 		return nil, fmt.Errorf("getting reader over sector %d: %w", id, err)
 	}

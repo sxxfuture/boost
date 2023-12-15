@@ -42,6 +42,10 @@ func (sa *sectorAccessor) UnsealSector(ctx context.Context, sectorID abi.SectorN
 	return sa.UnsealSectorAt(ctx, sectorID, pieceOffset, length)
 }
 
+func (sa *sectorAccessor) UnsealSectorAtOfSxx(ctx context.Context, sectorID abi.SectorNumber, pieceOffset abi.UnpaddedPieceSize, length abi.UnpaddedPieceSize, piececid cid.Cid) (mount.Reader, error) {
+	return nil, nil
+}
+
 func (sa *sectorAccessor) UnsealSectorAt(ctx context.Context, sectorID abi.SectorNumber, pieceOffset abi.UnpaddedPieceSize, length abi.UnpaddedPieceSize) (mount.Reader, error) {
 	log.Debugf("get sector %d, pieceOffset %d, length %d", sectorID, pieceOffset, length)
 	si, err := sa.sectorsStatus(ctx, sectorID, false)

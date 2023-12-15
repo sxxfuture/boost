@@ -30,6 +30,7 @@ import (
 	"github.com/filecoin-project/lotus/storage/paths"
 	"github.com/filecoin-project/lotus/storage/sealer"
 	"github.com/filecoin-project/lotus/storage/sealer/storiface"
+	"github.com/ipfs/go-cid"
 	logging "github.com/ipfs/go-log/v2"
 )
 
@@ -154,6 +155,14 @@ func (a *MultiMinerAccessor) GetReader(ctx context.Context, minerAddr address.Ad
 		return nil, fmt.Errorf("get reader: no endpoint registered for miner %s", minerAddr)
 	}
 	return pr.GetReader(ctx, minerAddr, id, offset, length)
+}
+
+func (a *MultiMinerAccessor) GetReaderOfSxx(ctx context.Context, minerAddr address.Address, id abi.SectorNumber, offset abi.PaddedPieceSize, length abi.PaddedPieceSize, piececid cid.Cid) (types.SectionReader, error) {
+	pr, ok := a.readers[minerAddr]
+	if !ok {
+		return nil, fmt.Errorf("get reader: no endpoint registered for miner %s", minerAddr)
+	}
+	return pr.GetReaderOfSxx(ctx, minerAddr, id, offset, length, piececid)
 }
 
 func (a *MultiMinerAccessor) UnsealSectorAt(ctx context.Context, minerAddr address.Address, sectorID abi.SectorNumber, pieceOffset abi.UnpaddedPieceSize, length abi.UnpaddedPieceSize) (mount.Reader, error) {

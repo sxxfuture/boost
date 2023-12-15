@@ -28,6 +28,7 @@ type SectorAccessor interface {
 	retrievalmarket.SectorAccessor
 
 	UnsealSectorAt(ctx context.Context, sectorID abi.SectorNumber, pieceOffset abi.UnpaddedPieceSize, length abi.UnpaddedPieceSize) (mount.Reader, error)
+	UnsealSectorAtOfSxx(ctx context.Context, sectorID abi.SectorNumber, pieceOffset abi.UnpaddedPieceSize, length abi.UnpaddedPieceSize, piececid cid.Cid) (mount.Reader, error)
 }
 
 type minerAPI struct {

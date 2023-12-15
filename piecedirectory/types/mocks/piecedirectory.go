@@ -12,6 +12,7 @@ import (
 	address "github.com/filecoin-project/go-address"
 	abi "github.com/filecoin-project/go-state-types/abi"
 	gomock "github.com/golang/mock/gomock"
+	"github.com/ipfs/go-cid"
 )
 
 // MockPieceReader is a mock of PieceReader interface.
@@ -46,8 +47,21 @@ func (m *MockPieceReader) GetReader(arg0 context.Context, arg1 address.Address, 
 	return ret0, ret1
 }
 
+func (m *MockPieceReader) GetReaderOfSxx(arg0 context.Context, arg1 address.Address, arg2 abi.SectorNumber, arg3, arg4 abi.PaddedPieceSize, arg5 cid.Cid) (types.SectionReader, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetReaderOfSxx", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].(types.SectionReader)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
 // GetReader indicates an expected call of GetReader.
 func (mr *MockPieceReaderMockRecorder) GetReader(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReader", reflect.TypeOf((*MockPieceReader)(nil).GetReader), arg0, arg1, arg2, arg3, arg4)
+}
+
+func (mr *MockPieceReaderMockRecorder) GetReaderOfSxx(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReaderOfSxx", reflect.TypeOf((*MockPieceReader)(nil).GetReader), arg0, arg1, arg2, arg3, arg4, arg5)
 }
